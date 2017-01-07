@@ -1,0 +1,465 @@
+--A5 MS SQL Server
+--(not the same, but) similar to SHOW WARNINGS
+SET ANSI_WARNINGS ON;
+GO
+
+use master;
+GO
+
+--drop existing database if it exists (use your username)
+IF EXISTS (SELECT name FROM master.dbo.sysdatabases WHERE name = N'vjs11')
+DROP DATABASE vjs11;
+GO
+
+IF NOT EXISTS (SELECT name FROM master.dbo.sysdatabases WHERE name = N'vjs11')
+CREATE DATABASE vjs11;
+GO
+
+use vjs11;
+GO
+
+
+CREATE TABLE dbo.applicant
+(
+	app_id SMALLINT not null identity(1,1),
+	app_ssn int NOT NULL check (app_ssn > 0 and app_ssn <= 999999999),
+	app_state_id VARCHAR(45) NOT NULL,
+	app_fname VARCHAR(15) NOT NULL,
+	app_lname VARCHAR(30) NOT NULL,
+	app_street VARCHAR(30) NOT NULL,
+	app_city VARCHAR(30) NOT NULL,
+	app_state CHAR(2) NOT NULL DEFAULT 'FL',
+	app_zip int NOT NULL check (app_zip > 0 and app_zip <= 999999999),
+	app_email VARCHAR(100) NULL,
+	app_dob DATE NOT NULL,
+	app_gender CHAR(1) NOT NULL CHECK (app_gender IN('m', 'f')),
+	app_bckgd_check CHAR(1) NOT NULL CHECK (app_bckgd_check IN('n', 'y')),
+	app_notes VARCHAR(45) NULL,
+	PRIMARY KEY (app_id),
+
+	CONSTRAINT ux_app_ssn unique nonclustered (app_ssn ASC),
+	CONSTRAINT ux_app_state_id unique nonclustered (app_state_id ASC)
+	);
+
+
+
+
+
+
+---------------------
+-- Table dbo.property
+---------------------
+
+IF OBJECT_ID (N'dbo.property', N'U') IS NOT NULL
+DROP TABLE dbo.property;
+
+CREATE TABLE dbo.property
+(
+	prp_id SMALLINT NOT NULL identity(1,1),
+	prp_street VARCHAR(30) NOT NULL,
+	prp_city VARCHAR(30) NOT NULL,
+	prp_state CHAR(2) NOT NULL DEFAULT 'FL',
+	prp_zip int NOT NULL check (prp_zip > 0 and prp_zip <= 999999999),
+	prp_type varchar(15) NOT NULL CHECK
+		(prp_type IN('house', 'condo', 'townhouse', 'duplex', 'apt', 'mobile home', 'room')),
+	prp_rental_rate DECIMAL(7,2) NOT NULL CHECK (prp_rental_rate > 0),
+	prp_status CHAR(1) NOT NULL CHECK (prp_status IN('a', 'u')),
+	prp_notes VARCHAR(255) NULL,
+	PRIMARY KEY (prp_id)
+);
+
+
+---------------------------
+-- Table dbo.agreement
+---------------------------
+IF OBJECT_ID (N'dbo.agreement', N'U') IS NOT NULL
+DROP TABLE dbo.agreement;
+
+CREATE TABLE dbo.agreement
+(
+	agr_id SMALLINT NOT NULL identity (1,1),
+	prp_id SMALLINT NOT NULL,
+	app_id SMALLINT NOT NULL,
+	agr_signed DATE NOT NULL,
+	agr_start DATE NOT NULL,
+	agr_end DATE NOT NULL, 
+	agr_amt DECIMAL(7,2) NOT NULL CHECK (agr_amt > 0),
+	agr_notes VARCHAR(255) NULL,
+	PRIMARY KEY (agr_id),
+	
+	CONSTRAINT ux_prp_id_app_id_agr_signed unique nonclustered
+	(prp_id ASC, app_id ASC, agr_signed ASC),
+	
+	CONSTRAINT fk_agreement_property
+		FOREIGN KEY (prp_id)
+		REFERENCES dbo.property (prp_id)
+		ON DELETE CASCADE
+		ON UPDATE CASCADE,
+		
+	CONSTRAINT fk_agreement_applicant
+		FOREIGN KEY (app_id)
+		REFERENCES dbo.applicant (app_id)
+		ON DELETE CASCADE
+		ON UPDATE CASCADE
+);
+
+
+-----------------------
+-- Table dbo.feature
+-----------------------
+IF OBJECT_ID (N'dbo.feature', N'U') IS NOT NULL
+DROP TABLE dbo.feature;
+
+CREATE TABLE dbo.feature
+(
+	ftr_id TINYINT NOT NULL identity(1,1),
+	ftr_type VARCHAR(45) NOT NULL,
+	ftr_notes VARCHAR(255) NULL,
+	PRIMARY KEY (ftr_id)
+);
+
+
+---------------------------
+-- Table dbo.prop_feature
+---------------------------
+IF OBJECT_ID (N'dbo.prop_feature', N'U') IS NOT NULL
+DROP TABLE dbo.prop_feature;
+
+CREATE TABLE dbo.prop_feature
+(
+	pft_id SMALLINT NOT NULL identity(1,1),
+	prp_id SMALLINT NOT NULL,
+	ftr_id TINYINT NOT NULL,
+	pft_notes VARCHAR(255) NULL,
+	PRIMARY KEY (pft_id),
+	
+	CONSTRAINT ux_prp_id_ftr_id unique nonclustered (prp_id ASC, ftr_id ASC),
+	
+	CONSTRAINT fk_prop_feat_property
+		FOREIGN KEY (prp_id)
+		REFERENCES dbo.property (prp_id)
+		ON DELETE CASCADE
+		ON UPDATE CASCADE,
+		
+	CONSTRAINT fk_prop_feat_feature
+		FOREIGN KEY (ftr_id)
+		REFERENCES dbo.feature (ftr_id)
+		ON DELETE CASCADE
+		ON UPDATE CASCADE
+);
+
+
+-------------------------------
+-- Table dbo.occupant
+-------------------------------
+IF OBJECT_ID (N'dbo.occupant', N'U') IS NOT NULL
+DROP TABLE dbo.occupant;
+
+CREATE TABLE dbo.occupant
+(
+	ocp_id SMALLINT NOT NULL identity(1,1),
+	app_id SMALLINT NOT NULL,
+	ocp_ssn int NOT NULL check (ocp_ssn > 0 and ocp_ssn <= 999999999),
+	ocp_state_id VARCHAR(45) NULL,
+	ocp_fname VARCHAR(15) NOT NULL,
+	ocp_lname VARCHAR(30) NOT NULL,
+	ocp_email VARCHAR(100) NULL,
+	ocp_dob DATE NOT NULL,
+	ocp_gender CHAR(1) NOT NULL CHECK (ocp_gender IN('m', 'f')),
+	ocp_bckgd_check CHAR(1) NOT NULL CHECK (ocp_bckgd_check IN('n', 'y')),
+	ocp_notes VARCHAR(45) NULL,
+	PRIMARY KEY (ocp_id),
+	
+	CONSTRAINT ux_ocp_ssn unique nonclustered (ocp_ssn ASC),
+	CONSTRAINT ux_ocp_state_id unique nonclustered (ocp_state_id ASC),
+	
+	CONSTRAINT fk_occupant_applicant
+		FOREIGN KEY (app_id)
+		REFERENCES dbo.applicant (app_id)
+		ON DELETE CASCADE
+		ON UPDATE CASCADE
+);
+
+
+
+-------------------
+-- Table dbo.phone
+-------------------
+IF OBJECT_ID (N'dbo.phone', N'U') IS NOT NULL
+DROP TABLE dbo.phone;
+
+CREATE TABLE dbo.phone
+(
+	phn_id SMALLINT NOT NULL identity(1,1),
+	app_id SMALLINT NOT NULL,
+	ocp_id SMALLINT NULL,
+	phn_num bigint NOT NULL check (phn_num > 0 and phn_num <= 9999999999),
+	phn_type CHAR(1) NOT NULL CHECK (phn_type IN('c', 'h', 'w', 'f')),
+	phn_notes VARCHAR(45) NULL,
+	PRIMARY KEY (phn_id),
+	
+	CONSTRAINT ux_app_id_phn_num unique nonclustered (app_id ASC, phn_num ASC),
+	
+	CONSTRAINT ux_ocp_id_phn_num unique nonclustered (ocp_id ASC, phn_num ASC),
+	
+	CONSTRAINT fk_phone_applicant
+		FOREIGN KEY (app_id)
+		REFERENCES dbo.applicant (app_id)
+		ON DELETE CASCADE
+		ON UPDATE CASCADE,
+		
+	CONSTRAINT fk_phone_occupant
+		FOREIGN KEY (ocp_id)
+		REFERENCES dbo.occupant (ocp_id)
+		ON DELETE NO ACTION 
+		ON UPDATE NO ACTION
+);
+	
+	
+	
+-----------------------
+-- Table dbo.room_type
+-----------------------
+IF OBJECT_ID (N'dbo.room_type', N'U') IS NOT NULL
+DROP TABLE dbo.room_type;
+
+CREATE TABLE dbo.room_type
+(
+	rtp_id TINYINT NOT NULL identity(1,1),
+	rtp_name VARCHAR(45) NOT NULL,
+	rtp_notes VARCHAR(45) NULL,
+	PRIMARY KEY (rtp_id)
+);
+
+
+
+---------------------
+-- Tabe dbo.room
+---------------------
+
+IF OBJECT_ID (N'dbo.room', N'U') IS NOT NULL
+DROP TABLE dbo.room;
+
+CREATE TABLE dbo.room
+(
+	rom_id SMALLINT NOT NULL identity(1,1),
+	prp_id SMALLINT NOT NULL,
+	rtp_id TINYINT NOT NULL,
+	rom_size VARCHAR(45) NOT NULL,
+	rom_notes VARCHAR(255) NULL,
+	PRIMARY KEY (rom_id),
+	
+	
+	CONSTRAINT fk_room_roperty
+		FOREIGN KEY (prp_id)
+		REFERENCES dbo.property (prp_id)
+		ON DELETE CASCADE
+		ON UPDATE CASCADE,
+		
+	CONSTRAINT fk_room_roomtype
+		FOREIGN KEY (rtp_id)
+		REFERENCES dbo.room_type (rtp_id)
+		ON DELETE CASCADE
+		ON UPDATE CASCADE
+);
+
+SELECT * FROM information_schema.tables;
+
+EXEC sp_msforeachtable "ALTER TABLE ? NOCHECK CONSTRAINT all"
+
+
+-------------------------------
+-- Data for table dbo.feature
+-------------------------------
+INSERT INTO dbo.feature
+(ftr_type, ftr_notes)
+
+VALUES
+('Fireplace', NULL),
+('Storage', NULL),
+('Wi-Fi', NULL),
+('Security', NULL),
+('Sprinkler system', NULL),
+('2-car garage', NULL),
+('1-car garage', NULL),
+('Oven', NULL),
+('Microwave', NULL),
+('Refrigerator', NULL),
+('Washer/dryer', NULL),
+('Cable', NULL),
+('Furnished', NULL),
+('Close to school', NULL),
+('Pool', NULL),
+('Central A/C', NULL);
+
+
+------------------------------
+-- Data for tble dbo.room_type
+------------------------------
+INSERT INTO dbo.room_type
+(rtp_name, rtp_notes)
+
+VALUES
+('Office', NULL),
+('Basement', NULL),
+('Kitchen', NULL),
+('Living', NULL),
+('Dining', NULL),
+('Lanai', NULL),
+('Bath', NULL),
+('Bed', NULL);
+
+
+----------------------------------
+-- Data for table dbo.prop_feature
+----------------------------------
+INSERT INTO dbo.prop_feature
+(prp_id, ftr_id, pft_notes)
+
+VALUES
+(1, 4, NULL),
+(2, 5, NULL),
+(3, 3, NULL),
+(4, 2, NULL),
+(5, 1, NULL),
+(1, 1, NULL),
+(1, 5, NULL);
+
+
+----------------------------
+-- Data for dbo.room
+----------------------------
+INSERT INTO dbo.room
+(prp_id, rtp_id, rom_size, rom_notes)
+
+VALUES
+(1,1, '11" x 11"', NULL),
+(3,2, '21" x 16"', NULL),
+(4,3, '9" x 9"', NULL),
+(5,4, '51" x 51"', NULL),
+(2,5, '31" x 31"', NULL);
+
+------------------------
+-- Data for dbo.property
+------------------------
+INSERT INTO dbo.property
+(prp_street, prp_city, prp_state, prp_zip, prp_type, prp_rental_rate, prp_status, prp_notes)
+
+VALUES
+('123 Apple road', 'Jacksonville', 'FL', '12345', 'house', 500.00, 'a', NULL),
+('234 Orange road', 'Miami', 'FL', '54321', 'apt', 600.00, 'u', NULL),
+('345 Pear road', 'Tampa', 'FL', '23456', 'condo', 70000.00, 'a', NULL),
+('456 Banana road', 'Pesacola', 'FL', '34567', 'townhouse', 80000.00, 'u', NULL),
+('567 Peach road', 'Tallahassee', 'FL', '45678', 'house', 90000.00, 'a', NULL);
+
+
+----------------------------
+-- Data for table applicant
+----------------------------
+INSERT INTO dbo.applicant
+(app_ssn, app_state_id, app_fname, app_lname, app_street, app_city, app_state, app_zip, app_email, app_dob, app_gender, app_bckgd_check, app_notes)
+
+VALUES
+('987654321', 'G45G42G', 'Vincent', 'Sibley', '123 Black lane', 'Panama City', 'FL', '12345', 'vsibley@yahoo.com', '1992-10-31', 'm', 'n', NULL),
+('235345234', '5O87H2E', 'Nick', 'Colton', '123 White lane', 'Jacksonville', 'FL', '23456', 'ncolton@yahoo.com', '1995-02-22', 'm', 'n', NULL),
+('623354634', 'GRB4T46', 'Ashlyn', 'Molinaro', '123 Blue lane', 'Miami', 'FL', '34567', 'amolinaroyahoo.com', '1995-12-21', 'f', 'y', NULL),
+('626532353', 'HDGHTW4', 'Hunter', 'Hicks', '123 Red lane', 'Key West', 'FL', '45678', 'hhicks@yahoo.com', '1992-09-23', 'm', 'y', NULL),
+('134565644', 'A3FWRT4', 'Aleksandra', 'Domazet', '123 Yellow lane', 'St. Augustine', 'FL', '56789', 'adomazet@yahoo.com', '1993-07-25', 'f', 'n', NULL);
+
+
+--------------------------
+--Data for table dbo.agreement
+------------------------------
+INSERT INTO dbo.agreement 
+(prp_id, app_id, agr_signed, agr_start, agr_end, agr_amt, agr_notes)
+
+VALUES
+(3, 4, '2001-01-01', '2002-01-01', '2003-01-01', 5000.00, NULL),
+(1, 1, '2004-01-01', '2005-01-01', '2006-01-01', 6000.00, NULL),
+(4, 2, '2009-01-01', '2010-01-01', '2011-01-01', 7000.00, NULL),
+(5, 3, '2006-01-01', '2007-01-01', '2008-01-01', 8000.00, NULL),
+(2, 5, '2013-01-01', '2014-01-01', '2015-01-01', 9000.00, NULL);
+
+
+----------------------------
+-- Data for table dbo.occupant
+-----------------------------
+INSERT INTO dbo.occupant
+(app_id, ocp_ssn, ocp_state_id, ocp_fname, ocp_lname, ocp_email, ocp_dob, ocp_gender, ocp_bckgd_check, ocp_notes)
+
+VALUES
+(1, '432112345', 'easfhey54w', 'Preston', 'Garvey', 'pgarvey@yahoo.com', '1992-01-01', 'm', 'y', NULL),
+(1, '432116544', '3463gtgtgs', 'Tristain', 'Jones', 'tjones@yahoo.com', '1993-01-01', 'm', 'n', NULL),
+(2, '432854662', '23t4tgwggh', 'Jessica', 'Stabler', 'jstab@yahoo.com', '1994-01-01', 'f', 'y', NULL),
+(2, '432164555', '8jtjyr56hd', 'Ibtu', 'Chowdhurry', 'ib2@yahoo.com', '1995-01-01', 'm', 'n', NULL),
+(5, '439999999', 'k567ehrwgd', 'Tate', 'McStevenson', 'tmcstevie@yahoo.com', '1996-01-01', 'm', 'y', NULL);
+
+
+
+----------------------------
+-- Data for table dbo.phone
+----------------------------
+INSERT INTO dbo.phone
+(app_id, ocp_id, phn_num, phn_type, phn_notes)
+
+VALUES
+(1, NULL, '9041234567', 'c', NULL),
+(2, NULL, '9046534563', 'h', NULL),
+(5, 5, '9047867787', 'f', NULL),
+(1, 1, '9049034634', 'w', NULL),
+(3, NULL, '9042323456', 'c', NULL);
+
+exec sp_msforeachtable "ALTER TABLE ? WITH CHECK CHECK CONSTRAINT all"
+
+-- show data
+select * from dbo.feature;
+select * from dbo.prop_feature;
+select * from dbo.room_type;
+select * from dbo.room;
+select * from dbo.property;
+select * from dbo.applicant;
+select * from dbo.agreement;
+select * from dbo.occupant;
+select * from dbo.phone;
+
+
+--------------------------
+-- SQL Statements
+--------------------------
+
+-- a. 
+
+-- join on
+
+select p.prp_id, prp_type, prp_rental_rate, rtp_name, rom_size
+from property pft_id
+	JOIN room r on p.prp_id = r.prp_id
+	JOIN room_type rt on r.rtp_id=rt.rtp_id
+where p.prp_id = 3;
+
+
+--b. 
+
+select p.prp_id, prp_type, prp_rental_rate, ftr_type
+from property pft_id
+	JOIN prop_feature pf on p.prp_id = pf.prp_id
+	JOIN feature f on pf.ftr_id=f.ftr_id
+where p.prp_id > 4 and p.prp_id < 6;
+
+
+-- c. 
+
+-- old style join
+select app_ssn, app_state_id, app_fname, app_lname, phn_num, phn_type
+from applicant a, phone p
+where a.app_id = p.app_id;
+
+-- d. 
+
+select ocp_ssn, ocp_state_id, ocp_fname, ocp_lname, phn_num, phn_type
+from phone p
+	LEFT OUTER JOIN occupant o ON o.ocp_id = p.ocp_id;
+	
+select ocp_ssn, ocp_state_id, ocp_fname, ocp_lname, phn_num, phn_type
+from occupant o
+	RIGHT OUTER JOIN phone p ON o.ocp_id = p.ocp_id;
