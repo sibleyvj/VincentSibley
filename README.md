@@ -1,2 +1,2 @@
-# VincentSibley
+VincentSibley
 My personal website
